@@ -1,6 +1,21 @@
 # PlexMusicSync
 Synchonzie a local directory of songs (genre, tags)  and playlists with a Plex server.
 
+Syncing tags:
+- MP3 or MP4 file genre to.
+    - Song artist genre on Plex.
+    - Song album genre on Plex.
+    - Song mood on Plex (since Plex doesn't have per-song genre).
+- MP3 or MP4 song rating to song rating on Plex.
+- If MP3 or MP4 file comment contains the word explicit, then a 'Explicit' is added to the Plex song mood tags.
+
+Clearing tags:
+- MP3 or MP4 file.
+    - Clear all song artist genre tags on Plex.
+    - Clear all song album genre tags on Plex.
+    - Clear all song mood tags on Plex.
+
+Usage:
 ```
 orion:PlexMusicSync tgoetz$ ./plex_music_sync.py -h
 usage: plex_music_sync.py [-h] [-v] [-s SERVER] [-u USERNAME] [-p PASSWORD] [-d DIRECTORY] [-S] [-c] [-D] [-f]
