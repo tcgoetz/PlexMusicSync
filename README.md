@@ -1,5 +1,5 @@
 # PlexMusicSync
-Synchonzie a local directory of songs (genre, tags)  and playlists with a Plex server.
+Synchonzie a local directory of songs (genre, tags) and playlists with a Plex server.
 
 Syncing tags:
 - MP3 or MP4 file genre to.
@@ -8,6 +8,9 @@ Syncing tags:
     - Song mood on Plex (since Plex doesn't have per-song genre).
 - MP3 or MP4 song rating to song rating on Plex.
 - If MP3 or MP4 file comment contains the word explicit, then a 'Explicit' is added to the Plex song mood tags.
+
+Syncing Playlists
+- Sync m3u files found to music playlists on Plex.
 
 Clearing tags:
 - MP3 or MP4 file.
@@ -36,3 +39,6 @@ optional arguments:
   -D, --debug           Log more error messages
   -f, --fatal           Exit with an error message if song data is missing.
 ```
+
+Todo:
+- token based Plex server login.
