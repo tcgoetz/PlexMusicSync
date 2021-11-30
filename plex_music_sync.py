@@ -246,7 +246,7 @@ def _sync_mp4(music, filename):
         _log_fatal("Failed to load %s", filename)
 
 
-def _sync_m3u(music, root, filename):
+def _sync_m3u(music, root, filename, sync_special_playlists):
     playlist_name = os.path.splitext(os.path.basename(filename))[0]
     # Delete any existing playlist with the same name.
     try:
@@ -272,15 +272,23 @@ def _sync_m3u(music, root, filename):
             title = _get_mp4_title(song)
         plex_song, plex_album, plex_artist = _find_media(music, artist, album, title)
         if plex_song:
+            # Treat a playlist named 'Unchecked' as special. Tag all songs in that playlist with 'Unchecked'
+            if playlist_name == 'Unchecked':
+                root_logger.info("Updating mood for unchecked song %s to include 'Unchecked'", title)
+                plex_song.addMood('Unchecked')
+            if playlist_name == 'Explicit':
+                root_logger.info("Updating mood for explicit song %s to include 'Explicit'", title)
+                plex_song.addMood('Explicit')
             tracks.append(plex_song)
         else:
             logger.error("Playlist song '%s' '%s' '%s' not found!", artist, album, title)
     root_logger.info("Creating playlist '%s' with %r", playlist_name, tracks)
     logger.info("Creating playlist '%s'", playlist_name)
-    music.createPlaylist(playlist_name, tracks)
+    if (playlist_name != 'Unchecked' and playlist_name != 'Explicit') or sync_special_playlists:
+        music.createPlaylist(playlist_name, tracks)
 
 
-def sync(plex, directory):
+def sync(plex, directory, sync_special_playlists):
     """Sync metadata from local song media files to a Plex server."""
     music = plex.library.section('Music')
     logger.info("Syncing songs in directory %s to Plex %s with %s songs", directory, plex.friendlyName, len(music.searchTracks()))
@@ -291,7 +299,7 @@ def sync(plex, directory):
             elif file.endswith(".m4a"):
                 _sync_mp4(music, os.path.join(root, file))
             elif file.endswith(".m3u") or file.endswith(".m3u8"):
-                _sync_m3u(music, root, os.path.join(root, file))
+                _sync_m3u(music, root, os.path.join(root, file), sync_special_playlists)
 
 def _clear_song(plex_song):
     for mood in plex_song.moods:
@@ -379,6 +387,7 @@ def main(argv):
     parser.add_argument("-p", "--password", help="Password of the Plex server")
     parser.add_argument("-d", "--directory", help="Directory that contains the music files")
     parser.add_argument("-S", "--sync", help="Sync genres, ratings, and playlists to Plex", action="store_true")
+    parser.add_argument("-P", "--specialplaylists", help="Sync special playlists as playlists. Don't just tag the songs in them.", action="store_true")
     parser.add_argument("-c", "--clear", help="Clear ratings and genre on Plex", action="store_true")
     parser.add_argument("-D", "--debug", help="Log more error messages", action="store_true")
     parser.add_argument("-f", "--fatal", help="Exit with an error message if song data is missing.", action="store_true")
@@ -397,7 +406,7 @@ def main(argv):
     if args.clear:
         clear(plex, args.directory)
     if args.sync:
-        sync(plex, args.directory)
+        sync(plex, args.directory, args.specialplaylists)
 
 
 if __name__ == "__main__":
