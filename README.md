@@ -1,5 +1,5 @@
 # PlexMusicSync
-Synchonzie a local directory of songs (MP3, MP4) metadata (genre, tags) and playlists (m3u) with a Plex server. The song files must already be present in Plex.
+Synchronize a local directory of songs (MP3, MP4) metadata (genre, ratings) and playlists (m3u) with a Plex server. The song files must already be present in Plex.
 
 Syncing tags:
 - MP3 or MP4 file genre to.
