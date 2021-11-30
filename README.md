@@ -13,7 +13,7 @@ Syncing Playlists
 - Sync m3u files found to music playlists on Plex.
 
 Clearing tags:
-- MP3 or MP4 file.
+- For each MP3 or MP4 file.
     - Clear all song artist genre tags on Plex.
     - Clear all song album genre tags on Plex.
     - Clear all song mood tags on Plex.
