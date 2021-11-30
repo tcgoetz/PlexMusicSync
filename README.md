@@ -1,5 +1,5 @@
 # PlexMusicSync
-Synchronize a local directory of songs' (MP3, MP4) metadata (genre, ratings) and playlists (m3u) with a Plex server. The song files must already be present in Plex.
+Synchronize a local directory of songs' (MP3, MP4) metadata (genre, ratings) and playlists (m3u, m3u8) with a Plex server. The song files must already be present in Plex.
 
 Syncing tags:
 - MP3 or MP4 file genre to.
@@ -19,6 +19,13 @@ Clearing tags:
     - Clear all song mood tags on Plex.
 
 Usage:
+
+Install required Python modules with
+
+pip3 install -r requirements.txt
+
+then run the script as follows:
+
 ```
 orion:PlexMusicSync tgoetz$ ./plex_music_sync.py -h
 usage: plex_music_sync.py [-h] [-v] [-s SERVER] [-u USERNAME] [-p PASSWORD] [-d DIRECTORY] [-S] [-c] [-D] [-f]
@@ -41,4 +48,5 @@ optional arguments:
 ```
 
 Todo:
-- token based Plex server login.
+- Token based Plex server login.
+- Create a special playlist of songs that are checked (enabled) in iTunes and sync that to Plex in a way that can be used in smart playlists.

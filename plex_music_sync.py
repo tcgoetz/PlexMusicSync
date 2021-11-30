@@ -290,7 +290,7 @@ def sync(plex, directory):
                 _sync_mp3(music, os.path.join(root, file))
             elif file.endswith(".m4a"):
                 _sync_mp4(music, os.path.join(root, file))
-            elif file.endswith(".m3u"):
+            elif file.endswith(".m3u") or file.endswith(".m3u8"):
                 _sync_m3u(music, root, os.path.join(root, file))
 
 def _clear_song(plex_song):
@@ -371,14 +371,14 @@ def clear(plex, directory):
 
 
 def main(argv):
-    """Sync music file ratings to a Plex server."""
+    """Sync playlists and music file ratings and genres to a Plex server."""
     parser = argparse.ArgumentParser()
     parser.add_argument("-v", "--version", help="Print the program's version", action='version', version=f"{__file__} {__version__}")
     parser.add_argument("-s", "--server", help="Hostname of the Plex server")
     parser.add_argument("-u", "--username", help="Username of the Plex server")
     parser.add_argument("-p", "--password", help="Password of the Plex server")
     parser.add_argument("-d", "--directory", help="Directory that contains the music files")
-    parser.add_argument("-S", "--sync", help="Sync genres and ratings to Plex", action="store_true")
+    parser.add_argument("-S", "--sync", help="Sync genres, ratings, and playlists to Plex", action="store_true")
     parser.add_argument("-c", "--clear", help="Clear ratings and genre on Plex", action="store_true")
     parser.add_argument("-D", "--debug", help="Log more error messages", action="store_true")
     parser.add_argument("-f", "--fatal", help="Exit with an error message if song data is missing.", action="store_true")
