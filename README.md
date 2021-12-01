@@ -1,7 +1,7 @@
 # PlexMusicSync
 Synchronize a local directory of songs' (MP3, MP4) metadata (genre, ratings) and playlists (m3u, m3u8) with a Plex server. The song files must already be present in Plex.
 
-I'm a long time Plex user, but until recently I've only used Plex for Movies and TV shows because I found Plex music support to be lacking. I have a large msuic library and need smart playlists based on track rating, track genre, track explicit lyrics, disabling of duplicate tracks (from compilations), etc. None of this metadata was present in Plex or supported by the Plex import. This script fills that gap by syncing that metadata from song files and playlists.
+I'm a long time Plex user, but until recently I've only used Plex for Movies and TV shows because I found Plex music support to be lacking. I have a large music library and need smart playlists based on track rating, track genre, track explicit lyrics, disabling of duplicate tracks (from compilations), track years, etc. None of this metadata was present in Plex or supported by the Plex import. This script fills that gap by syncing that metadata from song files and playlists.
 
 Syncing tags:
 - MP3 or MP4 file genre to.

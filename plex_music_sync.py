@@ -30,6 +30,9 @@ logger = logging.getLogger(__file__)
 logger.addHandler(logging.StreamHandler(stream=sys.stdout))
 root_logger = logging.getLogger()
 
+possible_song_tags = ['Explicit', 'Live', 'Acoustic']
+possible_album_tags = ['Explicit', 'Live', 'Acoustic', 'Remastered', 'Deluxe', 'Single', 'Soundtrack', 'Hits']
+
 
 def _log_fatal(*args):
     logger.fatal(*args)
@@ -79,47 +82,56 @@ def _mood_names(obj):
     return [genre.tag for genre in obj.moods]
 
 
-def _sync_song(plex_song, title, genre, rating, explicit):
+def _style_names(obj):
+    return [genre.tag for genre in obj.styles]
+
+
+def _sync_song(plex_song, genre, rating, tags=[]):
     if rating is not None:
         rounded_rating = float(round(rating, 1))
         if rounded_rating != plex_song.userRating:
-            root_logger.info("Updating rating for song %s from %s to %f", title, plex_song.userRating, rounded_rating)
+            root_logger.info("Updating rating for song '%s' from %s to %f", plex_song.title, plex_song.userRating, rounded_rating)
             plex_song.rate(rounded_rating)
     # Since Plex doesn't have a per song genre, the genre is sunk to mood
     moods = _mood_names(plex_song)
     if genre is not None and genre not in moods:
-        root_logger.info("Updating mood for song %s from %s to %s", title, moods, genre)
+        root_logger.info("Updating mood for song '%s' from '%s' to %s", plex_song.title, moods, genre)
         plex_song.addMood(genre)
-    if explicit:
-        root_logger.info("Updating mood for song %s to include Explicit", title)
-        plex_song.addMood('Explicit')
+    for tag in tags:
+        if tag not in moods:
+            root_logger.info("Updating mood for song '%s' to include '%s'", plex_song.title, tag)
+            plex_song.addMood(tag)
 
 
 def _sync_artist(plex_artist, genre):
     if genre is not None:
         genre_names = _genre_names(plex_artist)
         if genre not in genre_names:
-            root_logger.info("Updating genres for artist %s from %s to %s", plex_artist.title, genre_names, genre)
+            root_logger.info("Updating genres for artist '%s' from %s to %s", plex_artist.title, genre_names, genre)
             plex_artist.addGenre(genre)
 
 
-def _sync_album(plex_album, genre):
+def _sync_album(plex_album, genre, tags):
+    genre_names = _genre_names(plex_album)
     if genre is not None:
-        genre_names = _genre_names(plex_album)
         if genre not in genre_names:
-            root_logger.info("Updating genre for album '%s' from %s to %s", plex_album.title, genre_names, genre)
+            root_logger.info("Updating genre for album '%s' to include %s", plex_album.title, genre)
             plex_album.addGenre(genre)
+    for tag in tags:
+        if tag not in genre_names:
+            root_logger.info("Updating genre for album %s to include %s", plex_album.title, tag)
+            plex_album.addGenre(tag)
 
 
-def _sync_media(music, type, artist, album, title, genre, rating, explicit):
+def _sync_media(music, type, artist, album, title, genre, rating, album_tags=[], song_tags=[]):
     global sync_count
     sync_count += 1
-    root_logger.info("Syncing %d %s '%s' '%s' '%s' '%s' rating '%s' explicit %s", sync_count, type, artist, album, title, genre, rating, explicit)
+    root_logger.info("Syncing %d %s '%s' '%s' '%s' '%s' rating '%s' album tags %s song tags %s", sync_count, type, artist, album, title, genre, rating, album_tags, song_tags)
     plex_song, plex_album, plex_artist = _find_media(music, artist, album, title)
     if plex_song and plex_album and plex_artist:
-        _sync_song(plex_song, title, genre, rating, explicit)
+        _sync_song(plex_song, genre, rating, song_tags)
         _sync_artist(plex_artist, genre)
-        _sync_album(plex_album, genre)
+        _sync_album(plex_album, genre, album_tags)
     else:
         _log_fatal("Song '%s' '%s' '%s' not found on Plex!", title, album, artist)
 
@@ -175,6 +187,15 @@ def get_mp3_comment(song):
         return comments[0]
 
 
+def _tags_from_string(possible_tags, string):
+    tags = []
+    if string and len(string):
+        for possible_tag in possible_tags:
+            if possible_tag.lower() in string.lower():
+                tags.append(possible_tag)
+    return tags
+
+
 def _sync_mp3(music, filename):
     song = mutagen.File(filename)
     if song:
@@ -185,7 +206,7 @@ def _sync_mp3(music, filename):
         rating = get_mp3_rating(song)
         comment = get_mp3_comment(song)
         if artist and album and title:
-            _sync_media(music, 'mp3', artist, album, title, genre, rating, comment and 'explicit' in comment.lower())
+            _sync_media(music, 'mp3', artist, album, title, genre, rating, _tags_from_string(possible_album_tags, album), _tags_from_string(possible_song_tags, comment))
         else:
             _log_fatal("Missing required elements for %s: %s %s %s", filename, artist, album, title)
     else:
@@ -239,7 +260,7 @@ def _sync_mp4(music, filename):
         rating = _get_mp4_rating(song)
         comment = _get_mp4_comment(song)
         if artist and album and title:
-            _sync_media(music, 'mp4', artist, album, title, genre, rating, comment and 'explicit' in comment.lower())
+            _sync_media(music, 'mp4', artist, album, title, genre, rating, _tags_from_string(possible_album_tags, album), _tags_from_string(possible_song_tags, comment))
         else:
             _log_fatal("Missing required elements for %s: %s %s %s", filename, artist, album, title)
     else:
@@ -251,6 +272,7 @@ def _sync_m3u(music, root, filename, sync_special_playlists):
     # Delete any existing playlist with the same name.
     try:
         music.playlist(playlist_name).delete()
+        root_logger.info("Deleted existing playlist '%s'", playlist_name)
     except NotFound:
         root_logger.info("No existing playlist '%s'", playlist_name)
     playlist = m3u8.load(filename)
@@ -282,9 +304,9 @@ def _sync_m3u(music, root, filename, sync_special_playlists):
             tracks.append(plex_song)
         else:
             logger.error("Playlist song '%s' '%s' '%s' not found!", artist, album, title)
-    root_logger.info("Creating playlist '%s' with %r", playlist_name, tracks)
-    logger.info("Creating playlist '%s'", playlist_name)
     if (playlist_name != 'Unchecked' and playlist_name != 'Explicit') or sync_special_playlists:
+        root_logger.info("Creating playlist '%s' with %r", playlist_name, tracks)
+        logger.info("Creating playlist '%s'", playlist_name)
         music.createPlaylist(playlist_name, tracks)
 
 
