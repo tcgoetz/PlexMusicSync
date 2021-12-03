@@ -9,7 +9,9 @@ Syncing tags:
     - Song album genre on Plex.
     - Song mood on Plex (since Plex doesn't have per-song genre).
 - MP3 or MP4 song rating to song rating on Plex.
-- If MP3 or MP4 file comment contains the word explicit, then 'Explicit' is added to the Plex song mood tags.
+- If MP3 or MP4 file album name contains any of the words Explicit', 'Live', 'Acoustic', 'Remastered', 'Deluxe', 'Single', 'Soundtrack', 'Hits', then same tag is added to the Plex album mood tags.
+- If MP3 or MP4 file comment name contains any of the words 'Explicit', 'Live', 'Acoustic', then same tag is added to the Plex album mood tags.
+
 
 Syncing Playlists
 - Sync m3u and m3u8 files found locally to music playlists on Plex.
