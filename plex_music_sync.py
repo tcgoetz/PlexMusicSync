@@ -23,6 +23,8 @@ import m3u8
 fatal = False
 sync_count = 0
 clear_count = 0
+tag_delimeter = ','
+song_tags_from_comments = True
 
 
 logging.basicConfig(filename='sync.log', filemode='w', level=logging.INFO)
@@ -30,8 +32,8 @@ logger = logging.getLogger(__file__)
 logger.addHandler(logging.StreamHandler(stream=sys.stdout))
 root_logger = logging.getLogger()
 
-possible_song_tags = ['Explicit', 'Live', 'Acoustic']
-possible_album_tags = ['Explicit', 'Live', 'Acoustic', 'Remastered', 'Deluxe', 'Single', 'Soundtrack', 'Hits']
+possible_song_tags = ['Explicit', 'Live', 'Acoustic', 'Party', 'Driving', 'Relax', 'Running']
+possible_album_tags = ['Explicit', 'Live', 'Acoustic', 'Remastered', 'Deluxe', 'Single', 'Soundtrack', 'Hits', 'Best Of']
 
 
 def _log_fatal(*args):
@@ -120,7 +122,7 @@ def _sync_album(plex_album, genre, tags):
     for tag in tags:
         if tag not in genre_names:
             root_logger.info("Updating genre for album %s to include %s", plex_album.title, tag)
-            plex_album.addGenre(tag)
+            plex_album.addStyle(tag)
 
 
 def _sync_media(music, type, artist, album, title, genre, rating, album_tags=[], song_tags=[]):
@@ -181,7 +183,13 @@ def get_mp3_rating(song):
         return raw_rating / 25.5
 
 
-def get_mp3_comment(song):
+def _get_mp3_grouping(song):
+    grouping = _get_first_mp3_tag_element(song, 'GRP1', 'grouping', 'text')
+    if grouping and len(grouping):
+        return grouping[0]
+
+
+def _get_mp3_comment(song):
     comments = _get_first_mp3_tag_element(song, 'COMM', 'comment', 'text')
     if comments and len(comments):
         return comments[0]
@@ -196,21 +204,36 @@ def _tags_from_string(possible_tags, string):
     return tags
 
 
+def _tags_from_delimetered_string(possible_tags, string):
+    tags = []
+    if string and len(string):
+        tags = [token.strip().capitalize() for token in string.split(tag_delimeter)]
+    return tags
+
+
+def _load_media(filepath):
+    try:
+        return mutagen.File(filepath)
+    except mutagen.MutagenError:
+        logger.exception("Failed to load file")
+
+
 def _sync_mp3(music, filename):
-    song = mutagen.File(filename)
+    song = _load_media(filename)
     if song:
         artist = get_mp3_artist(song)
         album = get_mp3_album(song)
         title = _get_mp3_title(song)
         genre = get_mp3_genre(song)
         rating = get_mp3_rating(song)
-        comment = get_mp3_comment(song)
+        if song_tags_from_comments:
+            song_tags = _tags_from_string(possible_song_tags, _get_mp3_comment(song))
+        else:
+            song_tags = _tags_from_delimetered_string(possible_song_tags, _get_mp3_grouping(song))
         if artist and album and title:
-            _sync_media(music, 'mp3', artist, album, title, genre, rating, _tags_from_string(possible_album_tags, album), _tags_from_string(possible_song_tags, comment))
+            _sync_media(music, 'mp3', artist, album, title, genre, rating, _tags_from_string(possible_album_tags, album), song_tags)
         else:
             _log_fatal("Missing required elements for %s: %s %s %s", filename, artist, album, title)
-    else:
-        _log_fatal("Failed to load %s", filename)
 
 
 def _get_mp4_tag(song, tag, tagtype):
@@ -246,25 +269,30 @@ def _get_mp4_rating(song):
     root_logger.info("MP4 %s has no rating", song.filename)
 
 
+def _get_mp4_grouping(song):
+    return _get_mp4_tag(song, '©grp', 'comment')
+
+
 def _get_mp4_comment(song):
     return _get_mp4_tag(song, '©cmt', 'comment')
 
 
 def _sync_mp4(music, filename):
-    song = mutagen.File(filename)
+    song = _load_media(filename)
     if song:
         artist = _get_mp4_artist(song)
         album = _get_mp4_album(song)
         title = _get_mp4_title(song)
         genre = _get_mp4_genre(song)
         rating = _get_mp4_rating(song)
-        comment = _get_mp4_comment(song)
+        if song_tags_from_comments:
+            song_tags = _tags_from_string(possible_song_tags, _get_mp4_comment(song))
+        else:
+            song_tags = _tags_from_delimetered_string(possible_song_tags, _get_mp4_grouping(song))
         if artist and album and title:
-            _sync_media(music, 'mp4', artist, album, title, genre, rating, _tags_from_string(possible_album_tags, album), _tags_from_string(possible_song_tags, comment))
+            _sync_media(music, 'mp4', artist, album, title, genre, rating, _tags_from_string(possible_album_tags, album), song_tags)
         else:
             _log_fatal("Missing required elements for %s: %s %s %s", filename, artist, album, title)
-    else:
-        _log_fatal("Failed to load %s", filename)
 
 
 def _sync_m3u(music, root, filename, sync_special_playlists):
@@ -280,30 +308,31 @@ def _sync_m3u(music, root, filename, sync_special_playlists):
     tracks = []
     for file in playlist.files:
         filepath = os.path.join(root, file)
-        song = mutagen.File(filepath)
-        artist = None
-        album = None
-        title = None
-        if file.endswith('.mp3'):
-            artist = get_mp3_artist(song)
-            album = get_mp3_album(song)
-            title = _get_mp3_title(song)
-        elif file.endswith(".m4a"):
-            artist = _get_mp4_artist(song)
-            album = _get_mp4_album(song)
-            title = _get_mp4_title(song)
-        plex_song, plex_album, plex_artist = _find_media(music, artist, album, title)
-        if plex_song:
-            # Treat a playlist named 'Unchecked' as special. Tag all songs in that playlist with 'Unchecked'
-            if playlist_name == 'Unchecked':
-                root_logger.info("Updating mood for unchecked song %s to include 'Unchecked'", title)
-                plex_song.addMood('Unchecked')
-            if playlist_name == 'Explicit':
-                root_logger.info("Updating mood for explicit song %s to include 'Explicit'", title)
-                plex_song.addMood('Explicit')
-            tracks.append(plex_song)
+        song = _load_media(filepath)
+        if song:
+            artist = None
+            album = None
+            title = None
+            if file.endswith('.mp3'):
+                artist = get_mp3_artist(song)
+                album = get_mp3_album(song)
+                title = _get_mp3_title(song)
+            elif file.endswith(".m4a"):
+                artist = _get_mp4_artist(song)
+                album = _get_mp4_album(song)
+                title = _get_mp4_title(song)
+            plex_song, plex_album, plex_artist = _find_media(music, artist, album, title)
+            if plex_song:
+                # Treat a playlist named 'Unchecked' as special. Tag all songs in that playlist with 'Unchecked'
+                if playlist_name == 'Unchecked':
+                    root_logger.info("Updating mood for unchecked song %s to include 'Unchecked'", title)
+                    plex_song.addMood('Unchecked')
+                if playlist_name == 'Explicit':
+                    root_logger.info("Updating mood for explicit song %s to include 'Explicit'", title)
+                    plex_song.addMood('Explicit')
+                tracks.append(plex_song)
         else:
-            logger.error("Playlist song '%s' '%s' '%s' not found!", artist, album, title)
+            logger.error("Playlist %s song '%s' '%s' '%s' not found!", playlist_name, artist, album, title)
     if (playlist_name != 'Unchecked' and playlist_name != 'Explicit') or sync_special_playlists:
         root_logger.info("Creating playlist '%s' with %r", playlist_name, tracks)
         logger.info("Creating playlist '%s'", playlist_name)
@@ -410,6 +439,8 @@ def main(argv):
     parser.add_argument("-d", "--directory", help="Directory that contains the music files")
     parser.add_argument("-S", "--sync", help="Sync genres, ratings, and playlists to Plex", action="store_true")
     parser.add_argument("-P", "--specialplaylists", help="Sync special playlists as playlists. Don't just tag the songs in them.", action="store_true")
+    parser.add_argument("--tagdelimeter", help="Character that seperates tags in the comment string")
+    parser.add_argument("--tagsfromcomments", help="Parse song tags from comments instead of grouping")
     parser.add_argument("-c", "--clear", help="Clear ratings and genre on Plex", action="store_true")
     parser.add_argument("-D", "--debug", help="Log more error messages", action="store_true")
     parser.add_argument("-f", "--fatal", help="Exit with an error message if song data is missing.", action="store_true")
@@ -418,6 +449,13 @@ def main(argv):
 
     global fatal
     fatal = args.fatal
+
+    global song_tags_from_comments
+    song_tags_from_comments = args.tagsfromcomments
+
+    if args.tagdelimeter:
+        global tag_delimeter
+        tag_delimeter = args.tagdelimeter
 
     if args.debug:
         root_logger.setLevel(logging.DEBUG)
